@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Hello Random Chatting :)</title>
+  <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/main.css" rel="stylesheet">
+  <script src="/webjars/jquery/jquery.min.js"></script>
+  <script src="/webjars/sockjs-client/sockjs.min.js"></script>
+  <script src="/webjars/stomp-websocket/stomp.min.js"></script>
+</head>
+<body>
+<div id="main-content" class="container">
+  <div class="row">
+    <div class="col-md-12">
+      <form class="form-inline">
+        <div class="form-group">
+          <label for="name">What is your name?</label>
+          <input type="text" id="name" class="form-control" placeholder="Your name here...">
+        </div>
+        <button id="btnChatRequest" class="btn btn-default">Start</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  $(function () {
+    $.ajax({
+      url    : 'http://localhost:8080/join/hivava',
+      headers: {
+        "Content-Type": "application/json"
+      },
+      success: function (chatRoom) {
+        console.log('>> success receive chat info\n', chatRoom);
+      },
+      error  : function (jqxhr) {
+        alert('error');
+        console.log(jqxhr);
+      }
+    });
+  });
+</script>
+</body>
+</html>
