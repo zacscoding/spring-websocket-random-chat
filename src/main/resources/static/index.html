@@ -7,25 +7,68 @@
   <script src="/webjars/jquery/jquery.min.js"></script>
   <script src="/webjars/sockjs-client/sockjs.min.js"></script>
   <script src="/webjars/stomp-websocket/stomp.min.js"></script>
+  <script src="/webjars/handlebars/4.0.11-1/handlebars.min.js"></script>
+
 </head>
 <body>
 <div id="main-content" class="container">
   <div class="row">
-    <div class="col-md-12">
-      <form class="form-inline">
-        <div class="form-group">
-          <label for="name">What is your name?</label>
-          <input type="text" id="name" class="form-control" placeholder="Your name here...">
-        </div>
-        <button id="btnChatRequest" class="btn btn-default">Start</button>
-      </form>
+    <textarea rows="30" style="width:100%;" readonly></textarea>
+  </div>
+
+  <div class="row" id="chat-action-div"></div>
+</div>
+
+<script id="wait-chat-template" type="text/x-handlebars-template">
+  <div class="input-group">
+    <input type="text" id="userName" class="form-control" placeholder="User's name" aria-label="Recipient's username" aria-describedby="basic-addon2">
+    <div class="input-group-append">
+      <button class="btn btn-outline-secondary" type="button" id="btnJoin">Join</button>
     </div>
   </div>
-</div>
+</script>
+
+<script id="send-chat-template" type="text/x-handlebars-template">
+  <div class="input-group">
+    <textarea class="form-control custom-control" rows="3" style="resize:none"></textarea>
+    <span class="input-group-addon btn btn-primary" id="btnSend">Send</span>
+  </div>
+</script>
 
 <script>
   $(function () {
-    $.ajax({
+    var ChatManager = (function () {
+      function ChatManager() {
+      }
+
+      ChatManager.join = function (userName) {
+        console.log('join request.. :: ', userName);
+      };
+
+      ChatManager.send = function () {
+        console.log('send message..');
+      };
+
+      ChatManager.updateTemplate = function (type) {
+        var source;
+        if (type == 'wait') {
+          source = $('#wait-chat-template').html();
+        } else if (type == 'chat') {
+          source = $('#send-chat-template').html();
+        } else {
+          console.log('invalid type : ' + type);
+          return;
+        }
+        var template = Handlebars.compile(source);
+        var $target = $('#chat-action-div');
+        $target.empty();
+        $target.append(template({}));
+      };
+
+      return ChatManager;
+    }());
+
+    /*$.ajax({
       url    : 'http://localhost:8080/join/hivava',
       headers: {
         "Content-Type": "application/json"
@@ -37,7 +80,25 @@
         alert('error');
         console.log(jqxhr);
       }
+    });*/
+
+    $(document).on('click', '#btnJoin', function () {
+      var userName = $('#userName').val();
+      ChatManager.join(userName);
     });
+
+    $(document).on('click', '#btnSend', function () {
+      ChatManager.send();
+    });
+
+    ChatManager.updateTemplate('wait');
+
+    /*$('#btnChatRequest').click(function () {
+      var source = $('#wait-chat-template').html();
+      var template = Handlebars.compile(source);
+      var html = template({});
+      $('#test').append(html);
+    });*/
   });
 </script>
 </body>
