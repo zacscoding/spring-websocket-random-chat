@@ -1,14 +1,11 @@
 package demo.service;
 
-import demo.domain.ChatRoom;
-import demo.domain.User;
+import demo.domain.ChatRequest;
+import demo.domain.ChatResponse;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -26,7 +23,7 @@ import org.springframework.web.context.request.async.DeferredResult;
 public class ChatService {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatService.class);
-    private Map<User, DeferredResult<ChatRoom>> waitingUsers;
+    private Map<ChatRequest, DeferredResult<ChatResponse>> waitingUsers;
     private ReentrantReadWriteLock lock;
 
     @PostConstruct
@@ -36,24 +33,25 @@ public class ChatService {
     }
 
     @Async("asyncThreadPool")
-    public void joinChatRoom(User user, DeferredResult<ChatRoom> deferredResult) {
-        System.out.println("## joinChatRoom :: " + Thread.currentThread().getName() + "-" + Thread.currentThread().getId());
-        if (user == null || deferredResult == null) {
+    public void joinChatRoom(ChatRequest request, DeferredResult<ChatResponse> deferredResult) {
+        logger.info("## Join chat room request. {}[{}]", Thread.currentThread().getName(), Thread.currentThread().getId());
+        if (request == null || deferredResult == null) {
             return;
         }
 
         try {
             lock.writeLock().lock();
-            waitingUsers.put(user, deferredResult);
+            waitingUsers.put(request, deferredResult);
         } finally {
             lock.writeLock().unlock();
             establishChatRoom();
         }
     }
 
-    public void cancelChatRoom(User user) {
+    public void cancelChatRoom(ChatRequest user) {
         try {
             lock.writeLock().lock();
+            waitingUsers.remove(user);
         } finally {
             lock.writeLock().unlock();
             establishChatRoom();
@@ -62,24 +60,23 @@ public class ChatService {
 
     public void establishChatRoom() {
         try {
+            logger.info("Check current request chat size : {}", waitingUsers.size());
             lock.readLock().lock();
             if (waitingUsers.size() < 2) {
                 return;
             }
 
-            Iterator<User> itr = waitingUsers.keySet().iterator();
-            User user1 = itr.next();
-            User user2 = itr.next();
+            Iterator<ChatRequest> itr = waitingUsers.keySet().iterator();
+            ChatRequest user1 = itr.next();
+            ChatRequest user2 = itr.next();
 
             String uuid = UUID.randomUUID().toString();
-            DeferredResult<ChatRoom> user1Result = waitingUsers.remove(user1);
-            DeferredResult<ChatRoom> user2Result = waitingUsers.remove(user2);
 
-            ChatRoom chatRoom = new ChatRoom(user1, user2, uuid);
-            user1Result.setResult(chatRoom);
-            user2Result.setResult(chatRoom);
+            DeferredResult<ChatResponse> user1Result = waitingUsers.remove(user1);
+            DeferredResult<ChatResponse> user2Result = waitingUsers.remove(user2);
 
-            logger.info(">> establish chat room.\nChatRoom : {}", chatRoom);
+            user1Result.setResult(new ChatResponse(uuid, user1.getSessionId()));
+            user2Result.setResult(new ChatResponse(uuid, user2.getSessionId()));
         } catch (Exception e) {
             logger.warn("Exception occur while checking waiting users", e);
         } finally {

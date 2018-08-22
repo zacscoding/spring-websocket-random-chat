@@ -1,16 +1,21 @@
 package demo.web;
 
-import demo.domain.ChatRoom;
-import demo.domain.User;
+import demo.domain.ChatMessage;
+import demo.domain.ChatRequest;
+import demo.domain.ChatResponse;
 import demo.service.ChatService;
 import demo.util.ServletUtil;
+import java.security.Principal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.Message;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.async.DeferredResult;
@@ -27,16 +32,18 @@ public class ChatController {
 
     @Autowired
     private ChatService chatService;
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
     // tag :: async
-    @GetMapping("/join/{userName}")
+    @GetMapping("/join")
     @ResponseBody
-    public DeferredResult<ChatRoom> joinRequest(@PathVariable("userName") String userName) {
+    public DeferredResult<ChatResponse> joinRequest() {
         String sessionId = ServletUtil.getSession().getId();
-        logger.info(">> Join request. userName : {} , session id : {}", userName, sessionId);
+        logger.info(">> Join request. session id : {}", sessionId);
 
-        final User user = new User(userName, sessionId);
-        final DeferredResult<ChatRoom> deferredResult = new DeferredResult<>(null);
+        final ChatRequest user = new ChatRequest(sessionId);
+        final DeferredResult<ChatResponse> deferredResult = new DeferredResult<>(null);
         chatService.joinChatRoom(user, deferredResult);
 
         deferredResult.onCompletion(() -> chatService.cancelChatRoom(user));
@@ -49,10 +56,14 @@ public class ChatController {
     // -- tag :: async
 
     // tag :: websocket stomp
-    @MessageMapping("/chat.message/{uuid}")
-    public void sendMessage(@DestinationVariable("uuid") String uuid) {
+    @MessageMapping("/chat.message/{chatRoomId}")
+    public void sendMessage(@DestinationVariable("chatRoomId") String chatRoomId, @Payload ChatMessage chatMessage) {
+        logger.info("Request message. roomd id : {} | chat message : {} | principal : {}", chatRoomId, chatMessage);
+        if (!StringUtils.hasText(chatRoomId) || chatMessage == null) {
+            return;
+        }
 
+        messagingTemplate.convertAndSend("/topic/chat/" + chatRoomId, chatMessage);
     }
-
     // -- tag :: websocket stomp
 }

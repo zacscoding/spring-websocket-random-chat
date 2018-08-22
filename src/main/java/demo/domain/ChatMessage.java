@@ -7,24 +7,15 @@ package demo.domain;
  */
 public class ChatMessage {
 
-    private String from;
-    private String to;
+    private String senderSessionId;
     private String message;
 
-    public String getFrom() {
-        return from;
+    public String getSenderSessionId() {
+        return senderSessionId;
     }
 
-    public void setFrom(String from) {
-        this.from = from;
-    }
-
-    public String getTo() {
-        return to;
-    }
-
-    public void setTo(String to) {
-        this.to = to;
+    public void setSenderSessionId(String senderSessionId) {
+        this.senderSessionId = senderSessionId;
     }
 
     public String getMessage() {
@@ -37,6 +28,6 @@ public class ChatMessage {
 
     @Override
     public String toString() {
-        return "ChatMessage{" + "from='" + from + '\'' + ", to='" + to + '\'' + ", message='" + message + '\'' + '}';
+        return "ChatMessage{" + "senderSessionId='" + senderSessionId + '\'' + ", message='" + message + '\'' + '}';
     }
 }

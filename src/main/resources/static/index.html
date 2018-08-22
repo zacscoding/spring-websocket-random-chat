@@ -13,7 +13,7 @@
 <body>
 <div id="main-content" class="container">
   <div class="row">
-    <textarea rows="30" style="width:100%;" readonly></textarea>
+    <textarea id="chat-content" rows="30" style="width:100%;" readonly></textarea>
   </div>
 
   <div class="row" id="chat-action-div"></div>
@@ -21,16 +21,13 @@
 
 <script id="wait-chat-template" type="text/x-handlebars-template">
   <div class="input-group">
-    <input type="text" id="userName" class="form-control" placeholder="User's name" aria-label="Recipient's username" aria-describedby="basic-addon2">
-    <div class="input-group-append">
-      <button class="btn btn-outline-secondary" type="button" id="btnJoin">Join</button>
-    </div>
+    <button class="btn btn-outline-secondary" style="width:100%;" type="button" id="btnJoin">Join</button>
   </div>
 </script>
 
 <script id="send-chat-template" type="text/x-handlebars-template">
   <div class="input-group">
-    <textarea class="form-control custom-control" rows="3" style="resize:none"></textarea>
+    <textarea id="chat-message-input" class="form-control custom-control" rows="3" style="resize:none"></textarea>
     <span class="input-group-addon btn btn-primary" id="btnSend">Send</span>
   </div>
 </script>
@@ -41,12 +38,91 @@
       function ChatManager() {
       }
 
-      ChatManager.join = function (userName) {
-        console.log('join request.. :: ', userName);
+      ChatManager.textarea = $('#chat-content');
+      ChatManager.socket = null;
+      ChatManager.stompClient = null;
+      ChatManager.sessionId = null;
+      ChatManager.chatRoomId = null;
+
+      ChatManager.join = function () {
+        var intervalId;
+        $.ajax({
+          url       : 'http://localhost:8080/join',
+          headers   : {
+            "Content-Type": "application/json"
+          },
+          beforeSend: function () {
+            ChatManager.updateText('waiting anonymous user', false);
+            intervalId = setInterval(function () {
+              ChatManager.updateText('.', true);
+            }, 1000);
+          },
+          success   : function (chatResponse) {
+            console.log('success to connect', chatResponse);
+            clearInterval(intervalId);
+            ChatManager.sessionId = chatResponse.sessionId;
+            ChatManager.chatRoomId = chatResponse.chatRoomId;
+            ChatManager.updateTemplate('chat');
+            ChatManager.updateText('>> Connected anonymous user :)\n', false);
+            ChatManager.connectAndSubscribe();
+          },
+          error     : function (jqxhr) {
+            clearInterval(intervalId);
+            if (jqxhr.status == 503) {
+              ChatManager.updateText('\n>>> Failed to connect some user :(\nPlz try again', true);
+            }
+            console.log(jqxhr);
+          }
+        })
       };
 
-      ChatManager.send = function () {
-        console.log('send message..');
+      ChatManager.connectAndSubscribe = function () {
+        if (ChatManager.stompClient == null) {
+          var socket = new SockJS('/chat-websocket');
+          ChatManager.stompClient = Stomp.over(socket);
+          ChatManager.stompClient.connect({test : 'hivava'}, function (frame) {
+            console.log('Connected: ' + frame);
+            ChatManager.subscribeMessage();
+          });
+        } else {
+          ChatManager.subscribeMessage();
+        }
+      };
+
+      ChatManager.disconnect = function () {
+        if (ChatManager.stompClient !== null) {
+          ChatManager.stompClient.disconnect();
+          ChatManager = null;
+        }
+      };
+
+      ChatManager.sendMessage = function () {
+        console.log('send message.. >> ');
+        var $chatTarget = $('#chat-message-input');
+        var message = $chatTarget.val();
+        $chatTarget.val('');
+
+        var payload = {
+          senderSessionId: ChatManager.sessionId,
+          message        : message
+        };
+
+        ChatManager.stompClient.send('/app/chat.message/' + ChatManager.chatRoomId, {}, JSON.stringify(payload));
+      };
+
+      ChatManager.subscribeMessage = function () {
+        ChatManager.stompClient.subscribe('/topic/chat/' + ChatManager.chatRoomId, function (resultObj) {
+          console.log('>> success to receive message\n', resultObj.body);
+          var result = JSON.parse(resultObj.body);
+          var message = '';
+          if (result.senderSessionId === ChatManager.sessionId) {
+            message += '[Me] : ';
+          } else {
+            message += '[Anonymous] : ';
+          }
+          message += result.message + '\n';
+          ChatManager.updateText(message, true);
+        });
       };
 
       ChatManager.updateTemplate = function (type) {
@@ -65,22 +141,16 @@
         $target.append(template({}));
       };
 
+      ChatManager.updateText = function (message, append) {
+        if (append) {
+          ChatManager.textarea.val(ChatManager.textarea.val() + message);
+        } else {
+          ChatManager.textarea.val(message);
+        }
+      };
+
       return ChatManager;
     }());
-
-    /*$.ajax({
-      url    : 'http://localhost:8080/join/hivava',
-      headers: {
-        "Content-Type": "application/json"
-      },
-      success: function (chatRoom) {
-        console.log('>> success receive chat info\n', chatRoom);
-      },
-      error  : function (jqxhr) {
-        alert('error');
-        console.log(jqxhr);
-      }
-    });*/
 
     $(document).on('click', '#btnJoin', function () {
       var userName = $('#userName').val();
@@ -88,7 +158,7 @@
     });
 
     $(document).on('click', '#btnSend', function () {
-      ChatManager.send();
+      ChatManager.sendMessage();
     });
 
     ChatManager.updateTemplate('wait');
