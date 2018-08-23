@@ -1,13 +1,22 @@
 package demo.listener;
 
+import demo.service.ChatService;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
+import org.springframework.messaging.handler.annotation.Headers;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
+import org.springframework.messaging.support.GenericMessage;
+import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.springframework.messaging.support.NativeMessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionConnectedEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
-import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
 
 /**
  * @author zacconding
@@ -19,25 +28,35 @@ public class WebSocketEventListener {
 
     private static final Logger logger = LoggerFactory.getLogger(WebSocketEventListener.class);
 
+    @Autowired
+    private ChatService chatService;
+
     @EventListener
     public void handleWebSocketConnectListener(SessionConnectedEvent event) {
-        StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
-        System.out.println("------------ Connect ----------");
-        // headerAccessor.getSessionId();
-        String roomId = headerAccessor.getNativeHeader("roomId").get(0);
-        String userId = headerAccessor.getNativeHeader("userId").get(0);
-        logger.info("## Check room id : {} | user id : {}");
+        MessageHeaderAccessor accessor = NativeMessageHeaderAccessor.getAccessor(event.getMessage(), SimpMessageHeaderAccessor.class);
+        GenericMessage<?> generic = (GenericMessage<?>) accessor.getHeader("simpConnectMessage");
+        Map<String, Object> nativeHeaders = (Map<String, Object>) generic.getHeaders().get("nativeHeaders");
+        String chatRoomId = ((List<String>) nativeHeaders.get("chatRoomId")).get(0);
+        String sessionId = (String) generic.getHeaders().get("simpSessionId");
 
-        System.out.println(headerAccessor);
-        System.out.println("--------------------------------");
+        /*StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
+        System.out.println("## headerAccessor :: " + headerAccessor);
+        String chatRoomId = headerAccessor.getNativeHeader("chatRoomId").get(0);
+        String sessionId = headerAccessor.getSessionId();*/
+
+        logger.info("[Connected] room id : {} | websocket session id : {}", chatRoomId, sessionId);
+
+        chatService.connectUser(chatRoomId, sessionId);
     }
 
     @EventListener
     public void handleWebSocketDisconnectListener(SessionDisconnectEvent event) {
-        System.out.println("------------ Disconnect ----------");
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
-        // headerAccessor.getSessionId();
-        System.out.println(headerAccessor);
-        System.out.println("--------------------------------");
+
+        String sessionId = headerAccessor.getSessionId();
+
+        logger.info("[Disconnected] websocket session id : {}", sessionId);
+
+        chatService.disconnectUser(sessionId);
     }
 }

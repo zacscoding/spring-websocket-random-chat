@@ -1,15 +1,21 @@
 package demo.service;
 
+import demo.domain.ChatMessage;
 import demo.domain.ChatRequest;
 import demo.domain.ChatResponse;
+import demo.domain.MessageType;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.async.DeferredResult;
@@ -24,12 +30,18 @@ public class ChatService {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatService.class);
     private Map<ChatRequest, DeferredResult<ChatResponse>> waitingUsers;
+    // {key : websocket session id, value : chat room id}
+    private Map<String, String> connectedUsers;
     private ReentrantReadWriteLock lock;
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
     @PostConstruct
     private void setUp() {
         this.waitingUsers = new LinkedHashMap<>();
         this.lock = new ReentrantReadWriteLock();
+        this.connectedUsers = new ConcurrentHashMap<>();
     }
 
     @Async("asyncThreadPool")
@@ -82,5 +94,26 @@ public class ChatService {
         } finally {
             lock.readLock().unlock();
         }
+    }
+
+    public void sendMessage(String chatRoomId, ChatMessage chatMessage) {
+        String destination = getDestination(chatRoomId);
+        messagingTemplate.convertAndSend(destination, chatMessage);
+    }
+
+    public void connectUser(String chatRoomId, String websocketSessionId) {
+        connectedUsers.put(websocketSessionId, chatRoomId);
+    }
+
+    public void disconnectUser(String websocketSessionId) {
+        String chatRoomId = connectedUsers.get(websocketSessionId);
+        ChatMessage chatMessage = new ChatMessage();
+
+        chatMessage.setMessageType(MessageType.DISCONNECTED);
+        sendMessage(chatRoomId, chatMessage);
+    }
+
+    private String getDestination(String chatRoomId) {
+        return "/topic/chat/" + chatRoomId;
     }
 }
