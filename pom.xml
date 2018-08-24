@@ -82,6 +82,7 @@
     </dependencies>
 
     <build>
+        <finalName>spring-websocket-random-chat</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

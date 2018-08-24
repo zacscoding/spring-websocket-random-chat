@@ -14,7 +14,6 @@ import javax.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -72,7 +71,7 @@ public class ChatService {
 
     public void establishChatRoom() {
         try {
-            logger.info("Check current request chat size : {}", waitingUsers.size());
+            logger.debug("Current waiting users : " + waitingUsers.size());
             lock.readLock().lock();
             if (waitingUsers.size() < 2) {
                 return;
