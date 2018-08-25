@@ -9,6 +9,7 @@ import demo.util.ServletUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -44,9 +45,21 @@ public class ChatController {
 
         deferredResult.onCompletion(() -> chatService.cancelChatRoom(user));
         deferredResult.onError((throwable) -> chatService.cancelChatRoom(user));
-        deferredResult.onTimeout(() -> chatService.cancelChatRoom(user));
+        deferredResult.onTimeout(() -> chatService.timeout(user));
 
         return deferredResult;
+    }
+
+    @GetMapping("/cancel")
+    @ResponseBody
+    public ResponseEntity<Void> cancelRequest() {
+        String sessionId = ServletUtil.getSession().getId();
+        logger.info(">> Cancel request. session id : {}", sessionId);
+
+        final ChatRequest user = new ChatRequest(sessionId);
+        chatService.cancelChatRoom(user);
+
+        return ResponseEntity.ok().build();
     }
 
     // -- tag :: async

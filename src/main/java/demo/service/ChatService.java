@@ -3,6 +3,7 @@ package demo.service;
 import demo.domain.ChatMessage;
 import demo.domain.ChatRequest;
 import demo.domain.ChatResponse;
+import demo.domain.ChatResponse.ResponseResult;
 import demo.domain.MessageType;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -59,13 +60,21 @@ public class ChatService {
         }
     }
 
-    public void cancelChatRoom(ChatRequest user) {
+    public void cancelChatRoom(ChatRequest chatRequest) {
         try {
             lock.writeLock().lock();
-            waitingUsers.remove(user);
+            setJoinResult(waitingUsers.remove(chatRequest), new ChatResponse(ResponseResult.CANCEL, null, chatRequest.getSessionId()));
         } finally {
             lock.writeLock().unlock();
-            establishChatRoom();
+        }
+    }
+
+    public void timeout(ChatRequest chatRequest) {
+        try {
+            lock.writeLock().lock();
+            setJoinResult(waitingUsers.remove(chatRequest), new ChatResponse(ResponseResult.TIMEOUT, null, chatRequest.getSessionId()));
+        } finally {
+            lock.writeLock().unlock();
         }
     }
 
@@ -86,8 +95,8 @@ public class ChatService {
             DeferredResult<ChatResponse> user1Result = waitingUsers.remove(user1);
             DeferredResult<ChatResponse> user2Result = waitingUsers.remove(user2);
 
-            user1Result.setResult(new ChatResponse(uuid, user1.getSessionId()));
-            user2Result.setResult(new ChatResponse(uuid, user2.getSessionId()));
+            user1Result.setResult(new ChatResponse(ResponseResult.SUCCESS, uuid, user1.getSessionId()));
+            user2Result.setResult(new ChatResponse(ResponseResult.SUCCESS, uuid, user2.getSessionId()));
         } catch (Exception e) {
             logger.warn("Exception occur while checking waiting users", e);
         } finally {
@@ -114,5 +123,11 @@ public class ChatService {
 
     private String getDestination(String chatRoomId) {
         return "/topic/chat/" + chatRoomId;
+    }
+
+    private void setJoinResult(DeferredResult<ChatResponse> result, ChatResponse response) {
+        if (result != null) {
+            result.setResult(response);
+        }
     }
 }

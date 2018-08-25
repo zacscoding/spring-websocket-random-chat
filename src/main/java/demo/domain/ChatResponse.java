@@ -7,13 +7,15 @@ package demo.domain;
  */
 public class ChatResponse {
 
+    private ResponseResult responseResult;
     private String chatRoomId;
     private String sessionId;
 
     public ChatResponse() {
     }
 
-    public ChatResponse(String chatRoomId, String sessionId) {
+    public ChatResponse(ResponseResult responseResult, String chatRoomId, String sessionId) {
+        this.responseResult = responseResult;
         this.chatRoomId = chatRoomId;
         this.sessionId = sessionId;
     }
@@ -34,8 +36,20 @@ public class ChatResponse {
         this.chatRoomId = chatRoomId;
     }
 
+    public ResponseResult getResponseResult() {
+        return responseResult;
+    }
+
+    public void setResponseResult(ResponseResult responseResult) {
+        this.responseResult = responseResult;
+    }
+
     @Override
     public String toString() {
-        return "ChatResponse{" + "sessionId='" + sessionId + '\'' + ", chatRoomId='" + chatRoomId + '\'' + '}';
+        return "ChatResponse{" + "responseResult=" + responseResult + ", chatRoomId='" + chatRoomId + '\'' + ", sessionId='" + sessionId + '\'' + '}';
+    }
+
+    public enum ResponseResult {
+        SUCCESS, CANCEL, TIMEOUT;
     }
 }

@@ -8,35 +8,72 @@ $(function () {
     ChatManager.stompClient = null;
     ChatManager.sessionId = null;
     ChatManager.chatRoomId = null;
+    ChatManager.joinInterval = null;
 
     ChatManager.join = function () {
-      var intervalId;
       $.ajax({
-        url       : 'http://localhost:8080/join',
+        url       : 'join',
         headers   : {
           "Content-Type": "application/json"
         },
         beforeSend: function () {
+          $('#btnJoin').text('Cancel');
           ChatManager.updateText('waiting anonymous user', false);
-          intervalId = setInterval(function () {
+          ChatManager.joinInterval = setInterval(function () {
             ChatManager.updateText('.', true);
           }, 1000);
         },
         success   : function (chatResponse) {
-          console.log('success to connect', chatResponse);
-          clearInterval(intervalId);
-          ChatManager.sessionId = chatResponse.sessionId;
-          ChatManager.chatRoomId = chatResponse.chatRoomId;
-          ChatManager.updateTemplate('chat');
-          ChatManager.updateText('>> Connected anonymous user :)\n', false);
-          ChatManager.connectAndSubscribe();
+          console.log('Success to receive join result. \n', chatResponse);
+          if (!chatResponse) {
+            return;
+          }
+
+          clearInterval(ChatManager.joinInterval);
+          if (chatResponse.responseResult == 'SUCCESS') {
+            ChatManager.sessionId = chatResponse.sessionId;
+            ChatManager.chatRoomId = chatResponse.chatRoomId;
+            ChatManager.updateTemplate('chat');
+            ChatManager.updateText('>> Connected anonymous user :)\n', false);
+            ChatManager.connectAndSubscribe();
+          } else if (chatResponse.responseResult == 'CANCEL') {
+            ChatManager.updateText('>> Success to cancel', false);
+            $('#btnJoin').text('Join');
+          } else if (chatResponse.responseResult == 'TIMEOUT') {
+            ChatManager.updateText('>> Can`t find user :(', false);
+            $('#btnJoin').text('Join');
+          }
         },
         error     : function (jqxhr) {
-          clearInterval(intervalId);
+          clearInterval(ChatManager.joinInterval);
           if (jqxhr.status == 503) {
             ChatManager.updateText('\n>>> Failed to connect some user :(\nPlz try again', true);
+          } else {
+            ChatManager.updateText(jqxhr, true);
           }
           console.log(jqxhr);
+        },
+        complete  : function () {
+          clearInterval(ChatManager.joinInterval);
+        }
+      })
+    };
+
+    ChatManager.cancel = function () {
+      $.ajax({
+        url     : 'cancel',
+        headers : {
+          "Content-Type": "application/json"
+        },
+        success : function () {
+          ChatManager.updateText('', false);
+        },
+        error   : function (jqxhr) {
+          console.log(jqxhr);
+          alert('Error occur. please refresh');
+        },
+        complete: function () {
+          clearInterval(ChatManager.joinInterval);
         }
       })
     };
@@ -128,8 +165,12 @@ $(function () {
   }());
 
   $(document).on('click', '#btnJoin', function () {
-    var userName = $('#userName').val();
-    ChatManager.join(userName);
+    var type = $(this).text();
+    if (type == 'Join') {
+      ChatManager.join();
+    } else if (type == 'Cancel') {
+      ChatManager.cancel();
+    }
   });
 
   $(document).on('click', '#btnSend', function () {
